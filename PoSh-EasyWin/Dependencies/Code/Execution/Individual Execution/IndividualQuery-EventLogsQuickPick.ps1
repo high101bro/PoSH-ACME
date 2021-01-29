@@ -1,4 +1,4 @@
-# Query-EventLog -CollectionName $Query.Name -Filter $Query.Filter
+#BATMAN######################Query-EventLog -CollectionName $Query.Name -Filter $Query.Filter
 
 $ExecutionStartTime = Get-Date
 
@@ -71,15 +71,9 @@ if ($EventLogWinRMRadioButton.Checked) {
                     -AsJob -JobName "PoSh-EasyWin: $($CollectionName) -- $($TargetComputer)" `
                     -Credential $script:Credential
                 }
-
-
-                if ($script:CommandTreeViewQueryMethodSelectionComboBox.SelectedItem -eq 'Monitor Jobs') {
-                    Monitor-Jobs -CollectionName $CollectionName -MonitorMode
-                }
-                elseif ($script:CommandTreeViewQueryMethodSelectionComboBox.SelectedItem -eq 'Individual Execution') {
-                    Monitor-Jobs -CollectionName $CollectionName
-                    Post-MonitorJobs -CollectionName $CollectionName -CollectionCommandStartTime $ExecutionStartTime
-                }
+                Monitor-Jobs -CollectionName $CollectionName -MonitorMode
+                #Commented out because the above -MonitorMode implementation doesn't save files individually
+                #Post-MonitorJobs -CollectionName $CollectionName -CollectionCommandStartTime $ExecutionStartTime
             }
         }
     }
@@ -102,15 +96,9 @@ if ($EventLogWinRMRadioButton.Checked) {
                     -ComputerName $TargetComputer `
                     -AsJob -JobName "PoSh-EasyWin: $($CollectionName) -- $($TargetComputer)"
                 }
-
-
-                if ($script:CommandTreeViewQueryMethodSelectionComboBox.SelectedItem -eq 'Monitor Jobs') {
-                    Monitor-Jobs -CollectionName $CollectionName -MonitorMode
-                }
-                elseif ($script:CommandTreeViewQueryMethodSelectionComboBox.SelectedItem -eq 'Individual Execution') {
-                    Monitor-Jobs -CollectionName $CollectionName
-                    Post-MonitorJobs -CollectionName $CollectionName -CollectionCommandStartTime $ExecutionStartTime
-                }    
+                Monitor-Jobs -CollectionName $CollectionName -MonitorMode
+                #Commented out because the above -MonitorMode implementation doesn't save files individually
+                #Post-MonitorJobs -CollectionName $CollectionName -CollectionCommandStartTime $ExecutionStartTime
             }
         }
     }
@@ -163,15 +151,9 @@ else {
                     -Name "PoSh-EasyWin: $($CollectionName) -- $($TargetComputer)" `
                     -ArgumentList $Query.Filter, $EventLogsMaximumCollectionTextBoxText, $EventLogsStartTimePickerChecked,$EventLogsStopTimePickerChecked,$EventLogsStartTimePickerValue,$EventLogsStopTimePickerValue,$TargetComputer,$script:Credential
                 }
-
-
-                if ($script:CommandTreeViewQueryMethodSelectionComboBox.SelectedItem -eq 'Monitor Jobs') {
-                    Monitor-Jobs -CollectionName $CollectionName -MonitorMode
-                }
-                elseif ($script:CommandTreeViewQueryMethodSelectionComboBox.SelectedItem -eq 'Individual Execution') {
-                    Monitor-Jobs -CollectionName $CollectionName
-                    Post-MonitorJobs -CollectionName $CollectionName -CollectionCommandStartTime $ExecutionStartTime
-                }    
+                Monitor-Jobs -CollectionName $CollectionName -MonitorMode
+                #Commented out because the above -MonitorMode implementation doesn't save files individually
+                #Post-MonitorJobs -CollectionName $CollectionName -CollectionCommandStartTime $ExecutionStartTime
             }
         }
     }
@@ -219,15 +201,9 @@ else {
                     -Name "PoSh-EasyWin: $($CollectionName) -- $($TargetComputer)" `
                     -ArgumentList $Query.Filter, $EventLogsMaximumCollectionTextBoxText, $EventLogsStartTimePickerChecked,$EventLogsStopTimePickerChecked,$EventLogsStartTimePickerValue,$EventLogsStopTimePickerValue,$TargetComputer
                 }
-
-
-                if ($script:CommandTreeViewQueryMethodSelectionComboBox.SelectedItem -eq 'Monitor Jobs') {
-                    Monitor-Jobs -CollectionName $CollectionName -MonitorMode
-                }
-                elseif ($script:CommandTreeViewQueryMethodSelectionComboBox.SelectedItem -eq 'Individual Execution') {
-                    Monitor-Jobs -CollectionName $CollectionName
-                    Post-MonitorJobs -CollectionName $CollectionName -CollectionCommandStartTime $ExecutionStartTime
-                }    
+                Monitor-Jobs -CollectionName $CollectionName -MonitorMode
+                #Commented out because the above -MonitorMode implementation doesn't save files individually
+                #Post-MonitorJobs -CollectionName $CollectionName -CollectionCommandStartTime $ExecutionStartTime
             }
         }
     }

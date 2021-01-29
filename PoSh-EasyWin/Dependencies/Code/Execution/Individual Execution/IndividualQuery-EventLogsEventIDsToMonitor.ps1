@@ -177,14 +177,8 @@ foreach ($TargetComputer in $script:ComputerList) {
     }
 }
 
-
-if ($script:CommandTreeViewQueryMethodSelectionComboBox.SelectedItem -eq 'Monitor Jobs') {
-    Monitor-Jobs -CollectionName $CollectionName -MonitorMode
-}
-elseif ($script:CommandTreeViewQueryMethodSelectionComboBox.SelectedItem -eq 'Individual Execution') {
-    Monitor-Jobs -CollectionName $CollectionName
-    Post-MonitorJobs -CollectionName $CollectionName -CollectionCommandStartTime $ExecutionStartTime
-}
-
+Monitor-Jobs -CollectionName $CollectionName -MonitorMode
+#Commented out because the above -MonitorMode implementation doesn't save files individually
+#Post-MonitorJobs -CollectionName $CollectionName -CollectionCommandStartTime $ExecutionStartTime
 
 

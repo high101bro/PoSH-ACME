@@ -154,10 +154,10 @@ function Conduct-NodeAction {
                     $Entry.NodeFont  = New-Object System.Drawing.Font("$Font",$($FormScale * 10),1,1,1)
                     $Entry.ForeColor = [System.Drawing.Color]::FromArgb(0,0,0,224)
                 }
-                if ($root.text -match 'Custom Group Commands') {
+                if ($root.text -match 'Query History') {
                     $EntryQueryHistoryChecked++
-                    $Section1CommandsTab.Controls.Add($CommandsTreeViewCustomGroupCommandsRemovalButton)
-                    $CommandsTreeViewCustomGroupCommandsRemovalButton.bringtofront()
+                    $Section1CommandsTab.Controls.Add($CommandsTreeViewQueryHistoryRemovalButton)
+                    $CommandsTreeViewQueryHistoryRemovalButton.bringtofront()
                 }
             }
             elseif (!($Category.checked)) {
@@ -219,7 +219,7 @@ function Conduct-NodeAction {
                     }
                 }
                 if ($EntryQueryHistoryChecked -eq 0) {
-                    $Section1CommandsTab.Controls.Remove($CommandsTreeViewCustomGroupCommandsRemovalButton)
+                    $Section1CommandsTab.Controls.Remove($CommandsTreeViewQueryHistoryRemovalButton)
                 }
             }
             if ($Category.isselected) {

@@ -113,6 +113,7 @@ function Move-ComputerTreeNodeSelected {
     }
 
     Remove-EmptyCategory
+    AutoSave-HostData
     Save-HostData
 }
 

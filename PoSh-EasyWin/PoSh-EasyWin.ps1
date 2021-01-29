@@ -16,7 +16,7 @@
     ==================================================================================
 
     File Name      : PoSh-EasyWin.ps1
-    Version        : v.5.1.8 Beta
+    Version        : v.5.1.7 Beta
 
     Requirements   : PowerShell v3.0 for PowerShell Charts support
                      PowerShell v5.1 for PSWriteHTML Module support
@@ -30,7 +30,7 @@
                      etl2pcapng.exe, WinPmem.exe
                      wKillcx is a small command-line utility to close any TCP connection under Windows XP/Vista/Seven as well as Windows Server 2003/2008. The source code (assembly language) is included with the binary.
 
-    Updated        : 11 Dec 2020
+    Updated        : 28 Nov 2020
     Created        : 21 Aug 2018
 
     Author         : Daniel Komnick (high101bro)
@@ -270,6 +270,7 @@ $PoShHome                         = $PSScriptRoot #Deprecated# Split-Path -paren
     $LogFile                      = "$PoShHome\Log File.txt"
     $IPListFile                   = "$PoShHome\iplist.txt"
 
+    $ComputerTreeNodeFileAutoSave = "$PoShHome\Computer List TreeView (Auto-Save).csv"
     $ComputerTreeNodeFileSave     = "$PoShHome\Computer List TreeView (Saved).csv"
 
     $OpNotesFile                  = "$PoShHome\OpNotes.txt"
@@ -318,6 +319,8 @@ $PoShHome                         = $PSScriptRoot #Deprecated# Split-Path -paren
 
         # Location of separate queries
         $script:CollectedDataTimeStampDirectory = "$CollectedDataDirectory\$((Get-Date).ToString('yyyy-MM-dd @ HHmm ss'))"
+        # Location of Uncompiled Results
+        $script:IndividualHostResults           = "$script:CollectedDataTimeStampDirectory\Results By Endpoints"
 
 
 # Website / URL for Character Art
@@ -751,9 +754,9 @@ $script:AllActiveDirectoryCommands = Import-Csv $CommandsActiveDirectory
 Import-ActiveDirectoryScripts
 
 
-# Initializes/empties the Custom Group Commands array
+# Initializes/empties the Query History Commands array
 # Queries executed will be stored within this array and added later to as treenodes
-$script:CustomGroupCommandsListListListList = @()
+$script:QueryHistoryCommands = @()
 
 
 #======================================================================
@@ -777,7 +780,7 @@ $script:TreeeViewCommandsCount     = 0
 
 # Initializes the Commands TreeView section that various command nodes are added to
 # TreeView initialization initially happens upon load and whenever the it is regenerated, like when switching between views
-# These include the root nodes of Search, Endpoint and Active Directory queryies by method and type, and Custom Group Commands
+# These include the root nodes of Search, Endpoint and Active Directory queryies by method and type, and Query History
 . "$Dependencies\Code\Tree View\Command\Initialize-CommandTreeNodes.ps1"
 
 # This will keep the Command TreeNodes checked when switching between Method and Command views
@@ -800,57 +803,17 @@ $script:HostQueryTreeViewSelected = ""
 . "$Dependencies\Code\Main Body\DeselectAllCommands.ps1"
 . "$Dependencies\Code\Main Body\DeselectAllComputers.ps1"
 
-# Initially imports the Custom Group Commands and populates the command treenode
-$script:CustomGroupCommands = Import-CliXml "$Dependencies\Custom Group Commands.xml"
-foreach ($Command in $script:CustomGroupCommands) {
-    $Command | Add-Member -MemberType NoteProperty -Name CategoryName -Value "$($Command.CategoryName)" -Force
-    Add-NodeCommand -RootNode $script:TreeNodeCustomGroupCommands -Category "$($Command.CategoryName)" -Entry "$($Command.Name)" -ToolTip $Command.Command
-}
-$script:CustomGroupCommandsList = $script:CustomGroupCommands
 
-function Update-CustomCommandGroup {
-    Compile-SelectedCommandTreeNode
-
-    # Verifies that the command is only present once. Prevents running the multiple copies of the same comand, line from using the Custom Group Commands
-    $CommandsCheckedBoxesSelectedTemp  = @()
-    $CommandsCheckedBoxesSelectedDedup = @()
-    foreach ($Command in $script:CommandsCheckedBoxesSelected) {
-        if ($CommandsCheckedBoxesSelectedTemp -notcontains $Command.command) {
-            $CommandsCheckedBoxesSelectedTemp  += "$($Command.command)"
-            $CommandsCheckedBoxesSelectedDedup += $command
-        }
-    }
-
-    $CustomCommandGroupKeepSelected = @()
-    $CommandGroupCategoryName = $script:CollectionSavedDirectoryTextBox.Text | Split-Path -Leaf
-    foreach ($Command in $CommandsCheckedBoxesSelectedDedup) { 
-        Add-NodeCommand -RootNode $script:TreeNodeCustomGroupCommands -Category $CommandGroupCategoryName -Entry "$($Command.Name)" -ToolTip "$($Command.Command)"
-        $CustomCommandGroupKeepSelected += [pscustomobject]@{
-            CategoryName = $CommandGroupCategoryName
-            Name         = $Command.Name
-            Command      = $Command.Command
-        }
-    }
-
-    $script:CustomGroupCommandsList + $CustomCommandGroupKeepSelected | Export-CliXml "$Dependencies\Custom Group Commands.xml"
-
-    $script:CustomGroupCommands = Import-CliXml "$Dependencies\Custom Group Commands.xml"
-    foreach ($Command in $script:CustomGroupCommands) {
+# Imports the Query History and populates the command treenode
+$script:QueryHistory = Import-CliXml "$PoShHome\Query History.xml"
+function Update-QueryHistory {
+    foreach ($Command in $script:QueryHistory) {
         $Command | Add-Member -MemberType NoteProperty -Name CategoryName -Value "$($Command.CategoryName)" -Force
-        Add-NodeCommand -RootNode $script:TreeNodeCustomGroupCommands -Category "$($Command.CategoryName)" -Entry "$($Command.Name)" -ToolTip $Command.Command
+        Add-NodeCommand -RootNode $script:TreeNodePreviouslyExecutedCommands -Category "$($Command.CategoryName)" -Entry "$($Command.Name)" -ToolTip $Command.Command
     }
-    $script:CustomGroupCommandsList = $script:CustomGroupCommands
-
-    Remove-Variable -name CommandsCheckedBoxesSelectedTemp
-    Remove-Variable -name CommandsCheckedBoxesSelectedDedup
-    Remove-Variable -name CustomCommandGroupKeepSelected
-    Remove-Variable -name CustomGroupCommands
-
-    $script:CommandsTreeView.Nodes.Clear()
-    Initialize-CommandTreeNodes
-    View-CommandTreeNodeMethod
-    Update-TreeNodeCommandState
 }
+Update-QueryHistory
+
 
 $CommandsTreeViewViewByGroupBox = New-Object System.Windows.Forms.GroupBox -Property @{
     Text   = "Display And Group By:"
@@ -862,35 +825,35 @@ $CommandsTreeViewViewByGroupBox = New-Object System.Windows.Forms.GroupBox -Prop
     ForeColor = 'Blue'
 }
             . "$Dependencies\Code\System.Windows.Forms\RadioButton\CommandsViewMethodRadioButton.ps1"
-            $CommandsViewProtocolsUsedRadioButton = New-Object System.Windows.Forms.RadioButton -Property @{
-                Text      = "Protocols Used"
+            $CommandsViewMethodRadioButton = New-Object System.Windows.Forms.RadioButton -Property @{
+                Text      = "Method"
                 Left      = $FormScale * 10
                 Top       = $FormScale * 13
-                Width     = $FormScale * 105
+                Width     = $FormScale * 70
                 Height    = $FormScale * 22
                 Font      = New-Object System.Drawing.Font("$Font",$($FormScale * 11),0,0,0)
                 ForeColor = 'Black'
                 Checked   = $True
-                Add_Click = $CommandsViewProtocolsUsedRadioButtonAdd_Click
-                Add_MouseHover = $CommandsViewProtocolsUsedRadioButtonAdd_MouseHover
+                Add_Click = $CommandsViewMethodRadioButtonAdd_Click
+                Add_MouseHover = $CommandsViewMethodRadioButtonAdd_MouseHover
             }
-            $CommandsTreeViewViewByGroupBox.Controls.Add( $CommandsViewProtocolsUsedRadioButton )
+            $CommandsTreeViewViewByGroupBox.Controls.Add( $CommandsViewMethodRadioButton )
 
 
             . "$Dependencies\Code\System.Windows.Forms\RadioButton\CommandsViewQueryRadioButton.ps1"
-            $CommandsViewCommandNamesRadioButton = New-Object System.Windows.Forms.RadioButton -Property @{
-                Text      = "Command Names"
-                Left      = $CommandsViewProtocolsUsedRadioButton.Left + $CommandsViewProtocolsUsedRadioButton.Width
-                Top       = $CommandsViewProtocolsUsedRadioButton.Top
-                Width     = $FormScale * 115
+            $CommandsViewQueryRadioButton = New-Object System.Windows.Forms.RadioButton -Property @{
+                Text      = "Commands"
+                Left      = $CommandsViewMethodRadioButton.Left + $CommandsViewMethodRadioButton.Width
+                Top       = $CommandsViewMethodRadioButton.Top
+                Width     = $FormScale * 90
                 Height    = $FormScale * 22
                 Font      = New-Object System.Drawing.Font("$Font",$($FormScale * 11),0,0,0)
                 ForeColor = 'Black'
                 Checked   = $false
-                Add_Click = $CommandsViewCommandNamesRadioButtonAdd_Click
-                Add_MouseHover = $CommandsViewCommandNamesRadioButtonAdd_MouseHover
+                Add_Click = $CommandsViewQueryRadioButtonAdd_Click
+                Add_MouseHover = $CommandsViewQueryRadioButtonAdd_MouseHover
             }
-            $CommandsTreeViewViewByGroupBox.Controls.Add($CommandsViewCommandNamesRadioButton)
+            $CommandsTreeViewViewByGroupBox.Controls.Add($CommandsViewQueryRadioButton)
 $Section1CommandsTab.Controls.Add($CommandsTreeViewViewByGroupBox)
 
 
@@ -919,7 +882,7 @@ $CommandsTreeViewSearchComboBox = New-Object System.Windows.Forms.ComboBox -Prop
     Name     = "Search TextBox"
     Left     = $FormScale * 0
     Top      = $FormScale * 45
-    Width    = $FormScale * 170
+    Width    = $FormScale * 172
     Height   = $FormScale * 25
     Font     = New-Object System.Drawing.Font("$Font",$($FormScale * 11),0,0,0)
     AutoCompleteSource = "ListItems"
@@ -946,28 +909,12 @@ $Section1CommandsTab.Controls.Add($CommandsTreeViewSearchButton)
 CommonButtonSettings -Button $CommandsTreeViewSearchButton
 
 
-. "$Dependencies\Code\System.Windows.Forms\Button\CommandsTreeviewGroupCommandsButton.ps1"
-$CommandsTreeviewGroupCommandsButton = New-Object System.Windows.Forms.Button -Property @{
-    Text   = 'Group Commands'
-    Left   = $CommandsTreeViewSearchButton.Left + $CommandsTreeViewSearchButton.Width + ($FormScale * 5)
-    Top    = $FormScale * 45
-    Width  = $FormScale * 110
-    Height = $FormScale * 22
-    Add_Click      = {
-        [System.Windows.Forms.MessageBox]::Show("Currently, the group command node name will use the 'Results Folder' name of:`n`n`t$($script:CollectionSavedDirectoryTextBox.Text | Split-Path -Leaf)`n`nYou can delete the groups by checkboxing the node and selecting Remove Command Group Button when it appears.",'PoSh-EasyWin Group Commands')
-        Update-CustomCommandGroup
-    }
-}
-$Section1CommandsTab.Controls.Add($CommandsTreeviewGroupCommandsButton)
-CommonButtonSettings -Button $CommandsTreeviewGroupCommandsButton
-
-
 . "$Dependencies\Code\System.Windows.Forms\Button\CommandsTreeviewDeselectAllButton.ps1"
 $CommandsTreeviewDeselectAllButton = New-Object System.Windows.Forms.Button -Property @{
     Text   = 'Deselect All'
-    Left   = $CommandsTreeviewGroupCommandsButton.Left + $CommandsTreeviewGroupCommandsButton.Width + ($FormScale * 5)
+    Left   = $FormScale * 335
     Top    = $FormScale * 45
-    Width  = $FormScale * 84
+    Width  = $FormScale * 100
     Height = $FormScale * 22
     Add_Click      = $CommandsTreeviewDeselectAllButtonAdd_Click
     Add_MouseHover = $CommandsTreeviewDeselectAllButtonAdd_MouseHover
@@ -977,16 +924,16 @@ CommonButtonSettings -Button $CommandsTreeviewDeselectAllButton
 
 
 . "$Dependencies\Code\System.Windows.Forms\Button\CommandsTreeViewQueryHistoryRemovalButton.ps1"
-$CommandsTreeViewCustomGroupCommandsRemovalButton = New-Object System.Windows.Forms.Button -Property @{
-    Text   = "Remove Command Group"
+$CommandsTreeViewQueryHistoryRemovalButton = New-Object System.Windows.Forms.Button -Property @{
+    Text   = "Remove Query History"
     Left   = $FormScale * 278
     Top    = $FormScale * 430
     Width  = $FormScale * 150
     Height = $FormScale * 22
-    Add_Click = $CommandsTreeViewCustomGroupCommandsRemovalButtonAdd_Click
+    Add_Click = $CommandsTreeViewQueryHistoryRemovalButtonAdd_Click
 }
-CommonButtonSettings -Button $CommandsTreeViewCustomGroupCommandsRemovalButton
-# Note: This button is added/removed dynamicallly when custom group commands category treenodes are selected
+CommonButtonSettings -Button $CommandsTreeViewQueryHistoryRemovalButton
+# Note: This button is added/removed dynamicallly when query history category treenodes are selected
 
 
 $script:CommandsTreeView = New-Object System.Windows.Forms.TreeView -Property @{
@@ -1135,7 +1082,7 @@ View-CommandTreeNodeMethod
 $script:CommandsTreeView.Nodes.Add($script:TreeNodeEndpointCommands)
 $script:CommandsTreeView.Nodes.Add($script:TreeNodeActiveDirectoryCommands)
 $script:CommandsTreeView.Nodes.Add($script:TreeNodeCommandSearch)
-$script:CommandsTreeView.Nodes.Add($script:TreeNodeCustomGroupCommands)
+$script:CommandsTreeView.Nodes.Add($script:TreeNodePreviouslyExecutedCommands)
 #$script:CommandsTreeView.ExpandAll()
 
 
@@ -3069,7 +3016,7 @@ $Section1ActionOnEndpointTab.Controls.Add($ActionsTabKillNetworkConnectionGroupB
 
 
 $ActionsTabQuarantineEndpointGroupBox = New-Object System.Windows.Forms.GroupBox -Property @{
-    Text   = "Quarantine Endpoints (WinRM) - [Alpha Testing]"
+    Text   = "Quarantine Endpoints (WinRM) - BETA"
     Left   = $FormScale * 5
     Top    = $ActionsTabKillNetworkConnectionGroupBox.Top + $ActionsTabKillNetworkConnectionGroupBox.Height + $($FormScale * 10)
     Width  = $FormScale * 425
@@ -3779,7 +3726,7 @@ $EnumerationRightPosition     = 3
 $EnumerationLabelWidth        = 450
 $EnumerationLabelHeight       = 25
 $EnumerationGroupGap          = 15
-
+#batman
 $Section1EnumerationTab = New-Object System.Windows.Forms.TabPage -Property @{
     Name   = "Enumeration"
     Text   = "Enumeration"
@@ -4757,14 +4704,14 @@ $script:ProgressBarSelectionForm.Refresh()
 
 . "$Dependencies\Code\System.Windows.Forms\TabControl\Section2TabControl.ps1"
 $MainCenterTabControl = New-Object System.Windows.Forms.TabControl -Property @{
-    Name   = "Main Tab Window"
-    Left   = $FormScale * 470
-    Top    = $FormScale * 5
-    Width  = $FormScale *  370
-    Height = $FormScale * 278 
-    SelectedIndex  = 0
-    ShowToolTips   = $True
-    Font           = New-Object System.Drawing.Font("$Font",$($FormScale * 11),0,0,0)
+    Name          = "Main Tab Window"
+    Location      = @{ X = $FormScale * 470
+                       Y = $FormScale * 5 }
+    Size          = @{ Width  = $FormScale *  370
+                       Height = $FormScale * 278 }
+    SelectedIndex = 0
+    ShowToolTips  = $True
+    Font          = New-Object System.Drawing.Font("$Font",$($FormScale * 11),0,0,0)
     Add_Click      = $MainCenterTabControlAdd_Click
     Add_MouseHover = $MainCenterTabControlAdd_MouseHover
 }
@@ -4785,10 +4732,10 @@ $script:ProgressBarFormProgressBar.Value += 1
 $script:ProgressBarSelectionForm.Refresh()
 
 $MainCenterMainTab = New-Object System.Windows.Forms.TabPage -Property @{
-    Text = "Main"
-    Name = "Main"
-    Font = New-Object System.Drawing.Font("$Font",$($FormScale * 11),0,0,0)
+    Text                    = "Main"
+    Name                    = "Main"
     UseVisualStyleBackColor = $True
+    Font                    = New-Object System.Drawing.Font("$Font",$($FormScale * 11),0,0,0)
 }
 $MainCenterTabControl.Controls.Add($MainCenterMainTab)
 
@@ -5386,6 +5333,9 @@ $script:ComputerTreeViewData = Import-Csv $ComputerTreeNodeFileSave -ErrorAction
 # Saves the textbox data for Host Data
 . "$Dependencies\Code\Main Body\Save-HostData.ps1"
 
+# Auto saves the textbox data for Host Data, only useful is script freezes for some reason and then the main saved files is removed manually
+. "$Dependencies\Code\Main Body\AutoSave-HostData.ps1"
+
 # Initializes the Computer TreeView section that computer nodes are added to
 # TreeView initialization initially happens upon load and whenever the it is regenerated, like when switching between views
 # These include the root nodes of Search, and various Operating System and OU/CN names
@@ -5474,6 +5424,12 @@ Remove-EmptyCategory
 # It is also activated within the Conduct-NodeAction function
 . "$Dependencies\Code\Context Menu Strip\Display-ContextMenuForComputerTreeNode.ps1"
 Display-ContextMenuForComputerTreeNode
+
+#batman
+$ComputerTreeViewImageList = New-Object System.Windows.Forms.TreeView.ImageList
+$ComputerTreeViewImageList.Images.Add('C:\Users\Dan\Documents\GitHub\PoSh-EasyWin\PoSh-EasyWin\Dependencies\Images\PoSh-EasyWin Image 01.png')
+$ComputerTreeViewImageList.Images.Add('C:\Users\Dan\Documents\GitHub\PoSh-EasyWin\PoSh-EasyWin\Dependencies\Images\PoSh-EasyWin Image 02.png')
+$ComputerTreeViewImageList.Images.Add('C:\Users\Dan\Documents\GitHub\PoSh-EasyWin\PoSh-EasyWin\Dependencies\Images\PoSh-EasyWin Image 03.png')
 
 # Ref Guide: https://info.sapien.com/index.php/guis/gui-controls/spotlight-on-the-contextmenustrip-control
 . "$Dependencies\Code\System.Windows.Forms\TreeView\ComputerTreeView.ps1"
@@ -5627,7 +5583,6 @@ $Section3ActionTab = New-Object System.Windows.Forms.TabPage -Property @{
 $MainRightTabControl.Controls.Add($Section3ActionTab)
 
 
-<# TODO: Needs more testing
 # Used to verify settings before capturing memory as this can be quite resource exhaustive
 # Contains various checks to ensure that adequate resources are available on the remote and local hosts
 . "$Dependencies\Code\Execution\Action\Launch-RekallWinPmemForm.ps1"
@@ -5650,7 +5605,7 @@ CommonButtonSettings -Button $RekallWinPmemMemoryCaptureButton
 if (Test-Path "$ExternalPrograms\WinPmem\WinPmem.exe") { $Section3ActionTab.Controls.Add($RekallWinPmemMemoryCaptureButton) }
 
 $Column5DownPosition += $Column5DownPositionShift
-#>
+
 
 . "$Dependencies\Code\System.Windows.Forms\Button\EventViewerButton.ps1"
 $EventViewerButton = New-Object System.Windows.Forms.Button -Property @{
@@ -5668,7 +5623,6 @@ CommonButtonSettings -Button $EventViewerButton
 $Column5DownPosition += $Column5DownPositionShift
 
 
-#. "$Dependencies\Code\System.Windows.Forms\Button\ComputerListScreenShot.ps1"
 . "$Dependencies\Code\System.Windows.Forms\Button\ComputerListRDPButton.ps1"
 $ComputerListRDPButton = New-Object System.Windows.Forms.Button -Property @{
     Text   = 'Remote Desktop'
@@ -5798,7 +5752,6 @@ $script:CommandTreeViewQueryMethodSelectionComboBox = New-Object System.Windows.
 }
 $QueryMethodSelectionList = @(
     'Monitor Jobs',
-    'Individual Execution',
     'Session Based'
     #'Compiled Script'
     )
@@ -6199,6 +6152,14 @@ $ResultsListBox = New-Object System.Windows.Forms.ListBox -Property @{
 $Section3ResultsTab.Controls.Add($ResultsListBox)
 
 
+
+
+
+
+
+
+
+
 #=======================================================================================================================================================================
 #
 #  Parent: Main Form -> Main Bottom TabControl
@@ -6213,8 +6174,8 @@ $Section3ResultsTab.Controls.Add($ResultsListBox)
 
 function Maximize-MonitorJobsTab {
     $script:Section3MonitorJobsResizeButton.text = "v Minimize Tab"
-    $MainBottomTabControl.Top    = $MainCenterTabControl.Top
-    $MainBottomTabControl.Height = $MainBottomTabControlOriginalHeight + $MainCenterTabControl.Height + ($FormScale * 63)
+    $MainBottomTabControl.Top    = $MainBottomTabControlOriginalTop - 855
+    $MainBottomTabControl.Height = $MainBottomTabControlOriginalHeight + 855
     $MainBottomTabControl.bringtofront()
 }
 
@@ -6270,8 +6231,8 @@ $script:Section3MonitorJobsResizeButton = New-Object System.Windows.Forms.Button
     Font      = New-Object System.Drawing.Font($Font,$($FormScale * 11),1,2,1)
     ForeColor = 'Blue'
     Add_Click = {
-        if ($this.text -eq     "^ Maximize Tab") { Maximize-MonitorJobsTab }
-        elseif ($this.text -eq "v Minimize Tab") { Minimize-MonitorJobsTab }
+        if ($script:Section3MonitorJobsResizeButton.text -eq     "^ Maximize Tab") { Maximize-MonitorJobsTab }
+        elseif ($script:Section3MonitorJobsResizeButton.text -eq "v Minimize Tab") { Minimize-MonitorJobsTab }
     }
 }
 $script:Section3MonitorJobsGroupBox.Controls.Add($script:Section3MonitorJobsResizeButton)
@@ -6978,10 +6939,10 @@ CommonButtonSettings -Button $Section3QueryExplorationViewScriptButton
 
 # Compiles the .csv files in the collection directory then saves the combined file to the partent directory
 # The first line (collumn headers) is only copied once from the first file compiled, then skipped for the rest
-. "$Dependencies\Code\Execution\Compile-CsvFiles.ps1"
+#. "$Dependencies\Code\Execution\Compile-CsvFiles.ps1"
 
 # Compiles the .xml files in the collection directory then saves the combined file to the partent directory
-. "$Dependencies\Code\Execution\Compile-XmlFiles.ps1"
+#. "$Dependencies\Code\Execution\Compile-XmlFiles.ps1"
 
 # Removes Duplicate CSV Headers
 . "$Dependencies\Code\Execution\Individual Execution\Remove-DuplicateCsvHeaders.ps1"
@@ -7005,6 +6966,12 @@ CommonButtonSettings -Button $Section3QueryExplorationViewScriptButton
 # Searches for registry key names, value names, and value data
 # Uses input from GUI to query the registry
 . "$Dependencies\Code\Execution\Individual Execution\Query-Registry.ps1"
+
+ # This sorts the command treenodes again prior to execution, mainly so 'Query History' nodes are accounted for when checking for RPC commands, it also performs another command dedup check
+. "$Dependencies\Code\Tree View\Command\Sort-CommandTreeNode.ps1"
+
+# Imports the Query History and populates the command treenode
+Update-QueryHistory
 
 # Provides $script:SectionQueryCount variable data
 . "$Dependencies\Code\Execution\Count-SectionQueries.ps1"
@@ -7057,14 +7024,12 @@ $ExecuteScriptHandler = {
     $script:CollectedDataTimeStampDirectory = $script:CollectionSavedDirectoryTextBox.Text
     if ($SaveDirectory) { $script:CollectedDataTimeStampDirectory = $SaveDirectory }
 
-    # Location of Uncompiled Results
+
     $script:IndividualHostResults = "$script:CollectedDataTimeStampDirectory\Results By Endpoints"
-
-    # This function compiles the selected treeview comamnds, placing the proper command type and protocol into a variable list to be executed.
+    Sort-CommandTreeNode
     Compile-SelectedCommandTreeNode
-
-    # Counts the section queries and assigns value to the $script:SectionQueryCount variable
     Count-SectionQueries
+
 
     if ($EventLogsStartTimePicker.Checked -xor $EventLogsStopTimePicker.Checked) {
         # This brings specific tabs to the forefront/front view
@@ -7106,7 +7071,7 @@ $ExecuteScriptHandler = {
         # Counts the Total Queries
         $CountCommandQueries = 0
 
-        # Verifies that the command is only present once. Prevents running the multiple copies of the same comand, line from using the Custom Group Commands
+        # Verifies that the command is only present once. Prevents running the multiple copies of the same comand, line from using the Query History comamnds
         $CommandsCheckedBoxesSelectedTemp  = @()
         $CommandsCheckedBoxesSelectedDedup = @()
         foreach ($Command in $script:CommandsCheckedBoxesSelected) {
@@ -7172,9 +7137,19 @@ $ExecuteScriptHandler = {
         #[int]$script:RpcCommandCount + [int]$script:SmbCommandCount + [int]$script:WinRMCommandCount
         $QueryCount = $script:SectionQueryCount + $script:CommandsCheckedBoxesSelected.count
 
-        # This is Execution Start Time is just a catch all
-        # Each script/code within the execution modes should set this before they run
-        $ExecutionStartTime = Get-Date
+        # Adds executed commands to query history commands variable
+        $script:QueryHistoryCommands += $script:CommandsCheckedBoxesSelected
+
+        # Adds the selected commands to the Query History Command Nodes
+        $QueryHistoryCategoryName = $script:CollectionSavedDirectoryTextBox.Text.Replace("$CollectedDataDirectory","").TrimStart('\')
+        foreach ($Command in $script:CommandsCheckedBoxesSelected) {
+            $Command | Add-Member -MemberType NoteProperty -Name CategoryName -Value $QueryHistoryCategoryName -Force
+            Add-NodeCommand -RootNode $script:TreeNodePreviouslyExecutedCommands -Category $QueryHistoryCategoryName -Entry "$($Command.Name)" -ToolTip $Command.Command
+        }
+
+        # Saves the Query History to file, inlcudes other queries from past PoSh-EasyWin sessions
+        $script:QueryHistory  + $script:CommandsCheckedBoxesSelected | Export-Clixml "$PoShHome\Query History.xml"
+        $script:QueryHistory += $script:CommandsCheckedBoxesSelected
 
 
         #=======================================================================================================================================================================
@@ -7192,10 +7167,9 @@ $ExecuteScriptHandler = {
         # These instances/jobs are one threaded when querying the same command type; eg: all process queries are multi-threaded, once their all complete it moves on to the service query
 
         function Conduct-IndividualExecution {
+            $ExecutionStartTime = Get-Date
             Create-ComputerNodeCheckBoxArray
 
-            # Compares the computerlist against the previous computerlist queried (generated when previous query is completed )
-            # If the computerlists changed, it will prompt you to do connections tests and generate a new computerlist if endpoints fail
             if ((Compare-Object -ReferenceObject $script:ComputerList -DifferenceObject $script:ComputerListHistory) -or `
                    !(([bool]($script:RpcCommandCount   -gt 0) -eq [bool]$script:RpcCommandCountHistory) -and `
                      ([bool]($script:SmbCommandCount   -gt 0) -eq [bool]$script:SmbCommandCountHistory) -and `
@@ -7316,11 +7290,45 @@ $ExecuteScriptHandler = {
             Completed-QueryExecution
         }
 
-        if ($EventLogRPCRadioButton.checked -or $ExternalProgramsRPCRadioButton.checked -or $AccountsRPCRadioButton.checked) { $script:RpcCommandCount += 1 }
-
-        if ($script:CommandTreeViewQueryMethodSelectionComboBox.SelectedItem -eq 'Monitor Jobs' -or $script:CommandTreeViewQueryMethodSelectionComboBox.SelectedItem -eq 'Individual Execution') {
+        if ($script:CommandTreeViewQueryMethodSelectionComboBox.SelectedItem -eq 'Monitor Jobs' ) {
             Conduct-IndividualExecution
         }
+
+<# DEPRECATED
+        if ($EventLogRPCRadioButton.checked -or $ExternalProgramsRPCRadioButton.checked -or $AccountsRPCRadioButton.checked) { $script:RpcCommandCount += 1 }
+
+        if ($script:CommandTreeViewQueryMethodSelectionComboBox.SelectedItem -eq 'Monitor Jobs' -and ($script:RpcCommandCount -eq 0 -or $script:SmbCommandCount -eq 0) ) {
+
+            if ($script:WinRMCommandCount -gt 1) {
+                $MessageBox = [System.Windows.Forms.MessageBox]::Show("Multiple WinRM based commands were selected.
+Consider swtiching to 'Session Based' mode.
+Pros:
+   - The local processor and memory requirements are less
+   - There are less network connections - not as noisy
+Cons:
+   - Timeout feature is not available 
+   - The monitor jobs feature won't provide status updates
+   - Some queries or actions will display fewer or no updates",
+"Change to Session Based Collection",'YesNoCancel','Info')
+                Switch ( $MessageBox ) {
+                    'Yes' {
+                        $script:CommandTreeViewQueryMethodSelectionComboBox.SelectedIndex = 1
+                        Invoke-Command -ScriptBlock $ExecuteScriptHandler
+                        $script:CommandTreeViewQueryMethodSelectionComboBox.SelectedIndex = 0
+                        break
+                    }
+                    'No' {
+                        Conduct-IndividualExecution
+                    }
+                    'Cancel' {
+                        $StatusListBox.Items.Clear()
+                        $StatusListBox.Items.Add('Individual Execution Cancelled')
+                    }
+                }
+            }
+            else { Conduct-IndividualExecution }
+        }
+DEPRECATED #>
 
 
         #=======================================================================================================================================================================
@@ -7339,6 +7347,9 @@ $ExecuteScriptHandler = {
 
 
         elseif ($script:CommandTreeViewQueryMethodSelectionComboBox.SelectedItem -eq 'Compiled Script' ) {
+            $ExecutionStartTime = Get-Date
+            Generate-ComputerList
+
             # Compiles the individual commands into an object hashtable '$script:QueryCommands'
             . "$Dependencies\Code\Execution\Compiled Script\Compile-QueryCommands.ps1"
 
@@ -7354,7 +7365,7 @@ $ExecuteScriptHandler = {
                 $MainBottomTabControl.SelectedTab = $Section3ResultsTab
 
                 [system.media.systemsounds]::Exclamation.play()
-                [System.Windows.Forms.MessageBox]::Show("This mode does not currently support pushing:`nSysMon, AutoRuns, and ProcMon`n`nNor does it support the following sections:`nEventLogs, Registry, File Search, Network Connections","Compiled Script Error",[System.Windows.Forms.MessageBoxButtons]::OK)
+                $MessageBox = [System.Windows.Forms.MessageBox]::Show("This mode does not currently support pushing:`nSysMon, AutoRuns, and ProcMon`n`nNor does it support the following sections:`nEventLogs, Registry, File Search, Network Connections","Compiled Script Error",[System.Windows.Forms.MessageBoxButtons]::OK)
             }
             else {
                 Compile-QueryCommands
@@ -7364,7 +7375,7 @@ $ExecuteScriptHandler = {
                     width         = $FormScale * 1025
                     height        = $FormScale * 525
                     StartPosition = "CenterScreen"
-                    Text          = "Collection Script - Review, Edit, and Verify"
+                    Text          = �Collection Script - Review, Edit, and Verify�
                     Icon          = [System.Drawing.Icon]::ExtractAssociatedIcon("$EasyWinIcon")
                     ControlBox    = $true
                     Font          = New-Object System.Drawing.Font("$Font",$($FormScale * 11),0,0,0)
@@ -7625,6 +7636,8 @@ Invoke-Command -ComputerName `$TargetComputer -ScriptBlock {
         elseif ($script:CommandTreeViewQueryMethodSelectionComboBox.SelectedItem -eq 'Session Based' -and $script:RpcCommandCount -eq 0 -and $script:SmbCommandCount -eq 0 ) {
             $MainBottomTabControl.SelectedTab = $Section3ResultsTab
 
+            $ExecutionStartTime = Get-Date
+            Generate-ComputerList
             Compile-QueryCommands
 
             $StatusListBox.Items.Clear()
@@ -7796,6 +7809,18 @@ $script:ProgressBarSelectionForm.Refresh()
 # This needs to be here to execute the script
 # Note the Execution button itself is located in the Select Computer section
 $script:ComputerListExecuteButton.Add_Click($ExecuteScriptHandler)
+
+<# --Potential code to deprecate
+# Correct the initial state of the form to prevent the .Net maximized form issue
+#$InitialFormWindowState     = New-Object System.Windows.Forms.FormWindowState
+#$OnLoadForm_StateCorrection = { $PoShEasyWin.WindowState = $InitialFormWindowState }
+
+#Save the initial state of the form
+#$InitialFormWindowState = $PoShEasyWin.WindowState
+
+#Init the OnLoad event to correct the initial state of the form
+#$PoShEasyWin.add_Load($OnLoadForm_StateCorrection)
+#>
 
 #Show the Form
 $script:ProgressBarFormProgressBar.Value = 40

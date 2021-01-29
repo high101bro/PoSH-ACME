@@ -7,101 +7,51 @@ $PoShEasyWin.Refresh()
 
 $script:ProgressBarEndpointsProgressBar.Value = 0
 
-$TargetFolder                 = [string]($script:ExeScriptDestinationDirectoryTextBox.text).substring(3).trim('\')
+$TargetFolder                 = [string]($script:ExeScriptDestinationDirectoryTextBox.text).substring(3)
 $ExeScriptSelectDirOrFilePath = $script:ExeScriptSelectDirOrFilePath
 $ExeScriptSelectScriptPath    = $script:ExeScriptSelectScriptPath
 $AdminShare                   = 'c$'
 
+function Conduct-ExecutableAndScript {
+    param($ExeScriptSelectScript,$ExeScriptScriptOnlyCheckbox,$ExeScriptSelectDirRadioButton,$ExeScriptSelectFileRadioButton,$ExeScriptSelectDirOrFilePath,$TargetComputer,$AdminShare,$TargetFolder)
+    
+    if ($ExeScriptScriptOnlyCheckbox.checked -eq $false) {
+        if ($ExeScriptSelectDirRadioButton.checked -eq $true) {
+            Copy-Item -Path $ExeScriptSelectDirOrFilePath -Destination "\\$TargetComputer\$AdminShare\$TargetFolder" -Recurse -Force
+        }
+        elseif ($ExeScriptSelectFileRadioButton.checked -eq $true) {
+            Copy-Item -Path $ExeScriptSelectDirOrFilePath -Destination "\\$TargetComputer\$AdminShare\$TargetFolder" -Force
+        }
+    }
 
-$ExeScriptSelectScript = Get-Content $ExeScriptSelectScriptPath -Raw
+    Invoke-Expression $ExeScriptSelectScript
+}
+
 
 foreach ($TargetComputer in $script:ComputerList) {
     if ($ComputerListProvideCredentialsCheckBox.Checked) {
         if (!$script:Credential) { Create-NewCredentials }
 
-        Start-Job -ScriptBlock {
-            param($ExeScriptSelectScript,$ExeScriptScriptOnlyCheckbox,$ExeScriptSelectDirRadioButton,$ExeScriptSelectFileRadioButton,$ExeScriptSelectDirOrFilePath,$TargetComputer,$AdminShare,$TargetFolder,$script:Credential)
-    
-            # In case a $TargetComputer is an IP Address and not a Hostname
-            $TargetComputerDrive = $TargetComputer -replace '.','-'
+        $ExeScriptSelectScript = Get-Content $ExeScriptSelectScriptPath
+        Invoke-Command -ScriptBlock ${function:Conduct-ExecutableAndScript} `
+        -ArgumentList @($ExeScriptSelectScript,$ExeScriptScriptOnlyCheckbox,$ExeScriptSelectDirRadioButton,$ExeScriptSelectFileRadioButton,$ExeScriptSelectDirOrFilePath,$TargetComputer,$AdminShare,$TargetFolder) `
+        -ComputerName $TargetComputer `
+        -AsJob -JobName "PoSh-EasyWin: $($CollectionName) -- $($TargetComputer)" `
+        -Credential $script:Credential
 
-            New-PSDrive -Name $TargetComputerDrive `
-            -PSProvider FileSystem `
-            -Root "\\$TargetComputer\$AdminShare\$TargetFolder" `
-            -Credential $script:Credential | Out-Null
-
-            if ($ExeScriptScriptOnlyCheckbox.checked -eq $false) {
-                if ($ExeScriptSelectDirRadioButton.checked -eq $true) {
-                    Copy-Item -Path $ExeScriptSelectDirOrFilePath -Destination "$($TargetComputerDrive):" -Recurse -Force | Out-Null
-                }
-                elseif ($ExeScriptSelectFileRadioButton.checked -eq $true) {
-                    Copy-Item -Path $ExeScriptSelectDirOrFilePath -Destination "$($TargetComputerDrive):" -Force | Out-Null
-                }
-            }
-            Start-Sleep 1 | Out-Null
-        
-            Invoke-Command -ScriptBlock {
-                param($ExeScriptSelectScript)
-                Invoke-Expression -Command $ExeScriptSelectScript
-            } `
-            -ArgumentList @($ExeScriptSelectScript) `
-            -ComputerName $TargetComputer `
-            -Credential $script:Credential
-
-            Remove-PSDrive -Name $TargetComputerDrive | Out-Null
-
-        } `
-        -ArgumentList @($ExeScriptSelectScript,$ExeScriptScriptOnlyCheckbox,$ExeScriptSelectDirRadioButton,$ExeScriptSelectFileRadioButton,$ExeScriptSelectDirOrFilePath,$TargetComputer,$AdminShare,$TargetFolder,$script:Credential) `
-        -Name "PoSh-EasyWin: $($CollectionName) -- $($TargetComputer)"
-
-        Create-LogEntry -LogFile $LogFile -NoTargetComputer -Message "Invoke-Command -ScriptBlock `${function:ExecutableAndScript} -ArgumentList @(`$ExeScriptSelectScript,`$ExeScriptScriptOnlyCheckbox,`$ExeScriptSelectDirRadioButton,`$ExeScriptSelectFileRadioButton,`$ExeScriptSelectDirOrFilePath,`$TargetComputer,`$AdminShare,`$TargetFolder) -ComputerName $TargetComputer -AsJob -JobName 'PoSh-EasyWin: $($CollectionName) -- $($TargetComputer)' -Credential `$script:Credential"
+        Create-LogEntry -LogFile $LogFile -NoTargetComputer -Message "Invoke-Command -ScriptBlock `${function:Conduct-ExecutableAndScript} -ArgumentList @(`$ExeScriptSelectScriptPath,`$ExeScriptScriptOnlyCheckbox,`$ExeScriptSelectDirRadioButton,`$ExeScriptSelectFileRadioButton,`$ExeScriptSelectDirOrFilePath,`$TargetComputer,`$AdminShare,`$TargetFolder) -ComputerName $TargetComputer -AsJob -JobName 'PoSh-EasyWin: $($CollectionName) -- $($TargetComputer)' -Credential `$script:Credential"
     }
     else {
-        Start-Job -ScriptBlock {
-            param($ExeScriptSelectScript,$ExeScriptScriptOnlyCheckbox,$ExeScriptSelectDirRadioButton,$ExeScriptSelectFileRadioButton,$ExeScriptSelectDirOrFilePath,$TargetComputer,$AdminShare,$TargetFolder)
-
-            # In case a $TargetComputer is an IP Address and not a Hostname
-            $TargetComputerDrive = $TargetComputer -replace '.','-'
-
-            New-PSDrive -Name $TargetComputerDrive `
-            -PSProvider FileSystem `
-            -Root "\\$TargetComputer\$AdminShare\$TargetFolder" | Out-Null
-
-            if ($ExeScriptScriptOnlyCheckbox.checked -eq $false) {
-                if ($ExeScriptSelectDirRadioButton.checked -eq $true) {
-                    Copy-Item -Path $ExeScriptSelectDirOrFilePath -Destination "$($TargetComputerDrive):" -Recurse -Force | Out-Null
-                }
-                elseif ($ExeScriptSelectFileRadioButton.checked -eq $true) {
-                    Copy-Item -Path $ExeScriptSelectDirOrFilePath -Destination "$($TargetComputerDrive):" -Force | Out-Null
-                }
-            }
-            Start-Sleep 1 | Out-Null
-        
-            Invoke-Command -ScriptBlock {
-                param($ExeScriptSelectScript)
-                Invoke-Expression -Command $ExeScriptSelectScript
-            } `
-            -ArgumentList @($ExeScriptSelectScript) `
-            -ComputerName $TargetComputer
-
-            Remove-PSDrive -Name $TargetComputerDrive | Out-Null
-        } `
+        $ExeScriptSelectScript = Get-Content $ExeScriptSelectScriptPath
+        Invoke-Command -ScriptBlock ${function:Conduct-ExecutableAndScript} `
         -ArgumentList @($ExeScriptSelectScript,$ExeScriptScriptOnlyCheckbox,$ExeScriptSelectDirRadioButton,$ExeScriptSelectFileRadioButton,$ExeScriptSelectDirOrFilePath,$TargetComputer,$AdminShare,$TargetFolder) `
-        -Name "PoSh-EasyWin: $($CollectionName) -- $($TargetComputer)"
+        -ComputerName $TargetComputer `
+        -AsJob -JobName "PoSh-EasyWin: $($CollectionName) -- $($TargetComputer)"
 
-        Create-LogEntry -LogFile $LogFile -NoTargetComputer -Message "Invoke-Command -ScriptBlock `${function:ExecutableAndScript} -ArgumentList @(`$ExeScriptSelectScript,`$ExeScriptScriptOnlyCheckbox,`$ExeScriptSelectDirRadioButton,`$ExeScriptSelectFileRadioButton,`$ExeScriptSelectDirOrFilePath,`$TargetComputer,`$AdminShare,`$TargetFolder) -ComputerName $TargetComputer -AsJob -JobName 'PoSh-EasyWin: $($CollectionName) -- $($TargetComputer)'"
+        Create-LogEntry -LogFile $LogFile -NoTargetComputer -Message "Invoke-Command -ScriptBlock `${function:Conduct-ExecutableAndScript} -ArgumentList @(`$ExeScriptSelectScriptPath,`$ExeScriptScriptOnlyCheckbox,`$ExeScriptSelectDirRadioButton,`$ExeScriptSelectFileRadioButton,`$ExeScriptSelectDirOrFilePath,`$TargetComputer,`$AdminShare,`$TargetFolder) -ComputerName $TargetComputer -AsJob -JobName 'PoSh-EasyWin: $($CollectionName) -- $($TargetComputer)'"
     }
 }
-
-
-if ($script:CommandTreeViewQueryMethodSelectionComboBox.SelectedItem -eq 'Monitor Jobs') {
-    Monitor-Jobs -CollectionName $CollectionName -MonitorMode
-}
-elseif ($script:CommandTreeViewQueryMethodSelectionComboBox.SelectedItem -eq 'Individual Execution') {
-    Monitor-Jobs -CollectionName $CollectionName
-    Post-MonitorJobs -CollectionName $CollectionName -CollectionCommandStartTime $ExecutionStartTime
-}
-
+Monitor-Jobs -CollectionName $CollectionName -MonitorMode
 
 <# DEPRECATED
 foreach ($TargetComputer in $script:ComputerList) {

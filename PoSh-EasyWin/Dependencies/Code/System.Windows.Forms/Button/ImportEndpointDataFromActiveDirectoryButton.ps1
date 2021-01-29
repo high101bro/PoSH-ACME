@@ -50,6 +50,7 @@ function Import-EndpointsFromDomain {
     Foreach($Computer in $script:ComputerTreeViewData) { Add-NodeComputer -RootNode $script:TreeNodeComputerList -Category $Computer.CanonicalName -Entry $Computer.Name -ToolTip $Computer.IPv4Address }
     $script:ComputerTreeView.ExpandAll()
     Save-HostData
+    AutoSave-HostData
 }
 
 
@@ -70,6 +71,16 @@ $ImportFromADFrom = New-Object Windows.Forms.Form -Property @{
     Font          = New-Object System.Drawing.Font("$Font",$($FormScale * 11),0,0,0)
     Add_Closing = { $This.dispose() }
 }
+
+
+
+
+
+
+
+
+
+
     $ImportFromADWinRMGroupBox = New-Object System.Windows.Forms.GroupBox -Property @{
         text      = "Import from Active Directory remotely using WinRM"
         left      = $FormScale * 10
@@ -434,6 +445,7 @@ $ImportFromADAutoPullGroupBox = New-Object System.Windows.Forms.GroupBox -Proper
                     }
                 }
             }
+            AutoSave-HostData
             Save-HostData
             Update-TreeNodeComputerState -NoMessage
 

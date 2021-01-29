@@ -1,9 +1,9 @@
-$CommandsTreeViewCustomGroupCommandsRemovalButtonAdd_Click = {
+$CommandsTreeViewQueryHistoryRemovalButtonAdd_Click = {
     $QueryHistoryRemoveCategoryList = @()
     $QueryHistoryKeepCategoryList   = @()
     [System.Windows.Forms.TreeNodeCollection]$AllCommandsNode = $script:CommandsTreeView.Nodes
     foreach ($root in $AllCommandsNode) {
-        if ($root.text -match 'Custom Group Commands') {
+        if ($root.text -match 'Query History') {
             $root.ForeColor = [System.Drawing.Color]::FromArgb(0,0,0,0)
             foreach ($Category in $root.Nodes) {
                 $QueryHistoryRemoveCategoryList += $Category
@@ -12,7 +12,7 @@ $CommandsTreeViewCustomGroupCommandsRemovalButtonAdd_Click = {
         }
     }
     foreach ($Entry in $QueryHistoryRemoveCategoryList) { $Entry.remove() }
-    $Section1CommandsTab.Controls.Remove($CommandsTreeViewCustomGroupCommandsRemovalButton)
+    $Section1CommandsTab.Controls.Remove($CommandsTreeViewQueryHistoryRemovalButton)
 
     $QueryHistoryKeepSelected = @()
     foreach ($Category in $QueryHistoryKeepCategoryList) {
@@ -21,11 +21,11 @@ $CommandsTreeViewCustomGroupCommandsRemovalButtonAdd_Click = {
                 CategoryName = $Category.Text
                 Name         = $Entry.Text
             }
-            Add-NodeCommand -RootNode $script:TreeNodeCustomGroupCommands -Category "$($Category.text)" -Entry "$($Entry.Text)" -ToolTip $Command.Command
+            Add-NodeCommand -RootNode $script:TreeNodePreviouslyExecutedCommands -Category "$($Category.text)" -Entry "$($Entry.Text)" -ToolTip $Command.Command
         }
     }
-    $script:CustomGroupCommandsList = $QueryHistoryKeepSelected
-    $QueryHistoryKeepSelected | Export-CliXml "$Dependencies\Custom Group Commands.xml"
+    $script:QueryHistory = $QueryHistoryKeepSelected
+    $script:QueryHistory | Export-CliXml "$PoShHome\Query History.xml"
 }
 
 

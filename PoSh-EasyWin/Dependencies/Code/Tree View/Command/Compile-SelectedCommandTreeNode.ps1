@@ -17,7 +17,7 @@ function Compile-SelectedCommandTreeNode {
 
     foreach ($root in $AllHostsNode) {
         foreach ($Category in $root.Nodes) {
-            if ($CommandsViewProtocolsUsedRadioButton.Checked) {
+            if ($CommandsViewMethodRadioButton.Checked) {
                 foreach ($Entry in $Category.nodes) {
                     # Builds the query that is selected
                     if ($Entry.Checked -and $Entry -match '(WinRM)' -and $Entry -match 'Script') {
@@ -126,7 +126,7 @@ function Compile-SelectedCommandTreeNode {
                     }
                 }
             }
-            if ($CommandsViewCommandNamesRadioButton.Checked) {
+            if ($CommandsViewQueryRadioButton.Checked) {
                 foreach ($Entry in $Category.nodes) {
                     # Builds the query that is selected
                     if ($Entry -match '(WinRM)' -and $Entry -match 'Script' -and $Entry.Checked) {
