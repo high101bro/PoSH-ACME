@@ -1,6 +1,5 @@
 # PoSh-EasyWin
 #### PowerShell - Endpoint Analysis Solution Your Windows Intranet Needs
-#### Formerly known as: PoSh-ACME (Anayst Collection Made Easy)
 |                |                                                                 |
 |:---------------|:----------------------------------------------------------------|
 |  File Name     |  PoSh-EasyWin.ps1                                               |
@@ -235,8 +234,7 @@ You can view individual endpoint data and notes by selecting and highlighting, n
 
 ***
 ***
-### Basic Command Line support
-##### Currently under development. The overall commandline GUI is created, with overall flow to streamline querying... as the GUI provides much, much more.
+#### Formerly known as: PoSh-ACME (Anayst Collection Made Easy)
 
 
 ### This following Images are place holders for more information... and is under construction.
